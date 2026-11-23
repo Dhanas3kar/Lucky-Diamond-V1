@@ -130,11 +130,10 @@ export function HistorySection({ copiedDraw, onShare, activeDate }: HistorySecti
         <span className="text-xs text-slate-300">Filter by draw:</span>
         <div className="flex gap-[6px] flex-wrap">
           <button
-            className={`text-xs px-3 py-[6px] rounded-pill border transition-colors ${
-              selectedDraw === "ALL"
+            className={`text-xs px-3 py-[6px] rounded-pill border transition-colors ${selectedDraw === "ALL"
                 ? "bg-white text-slate-950 font-bold border-white"
                 : "bg-black/15 border-white/10 hover:border-white/30 text-slate-300"
-            }`}
+              }`}
             onClick={() => setSelectedDraw("ALL")}
           >
             All draws
@@ -142,11 +141,10 @@ export function HistorySection({ copiedDraw, onShare, activeDate }: HistorySecti
           {DRAWS.map((d) => (
             <button
               key={d.id}
-              className={`text-xs px-3 py-[6px] rounded-pill border transition-colors font-mono ${
-                selectedDraw === d.id
+              className={`text-xs px-3 py-[6px] rounded-pill border transition-colors font-mono ${selectedDraw === d.id
                   ? "bg-cyan-400 text-slate-950 font-bold border-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)]"
                   : "bg-black/15 border-white/10 hover:border-white/30 text-slate-300"
-              }`}
+                }`}
               onClick={() => setSelectedDraw(d.id)}
             >
               {d.time}

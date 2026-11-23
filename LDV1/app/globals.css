@@ -18,7 +18,7 @@
   --luma-amber-bg: rgba(120, 53, 15, 0.3);
 }
 
-/* ─── Base resets & background wallpaper ─────────────────────────────── */
+/* ─── Base resets & full-screen fixed background wallpaper ───────────── */
 @layer base {
   * {
     box-sizing: border-box;
@@ -30,30 +30,45 @@
 
   body {
     @apply m-0 text-luma-text font-body antialiased;
-    background-image: url('/bg-desktop.jpg');
-    background-size: cover;
-    background-position: center top;
-    background-attachment: fixed;
-    background-repeat: no-repeat;
     background-color: #030712;
     min-height: 100vh;
     position: relative;
+    overflow-x: hidden;
   }
 
-  /* Swap to portrait background on mobile */
+  /* Fullscreen fixed background wallpaper — always visible at every scroll position, zero jitter */
+  .fixed-bg-wallpaper {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100lvh;
+    min-height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+    background-image: url('/bg-desktop.jpg');
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    will-change: transform;
+  }
+
+  /* Portrait background on mobile */
   @media (max-width: 639px) {
-    body {
+    .fixed-bg-wallpaper {
       background-image: url('/bg-mobile.jpg');
+      background-position: center top;
     }
   }
 
-  /* Ambient contrast overlay — subtle 90-95% transparent to let background artwork shine */
-  body::before {
+  /* Ambient contrast overlay to let background artwork shine while keeping text readable */
+  .fixed-bg-wallpaper::after {
     content: "";
-    position: fixed;
+    position: absolute;
     inset: 0;
-    pointer-events: none;
-    z-index: 0;
     background: radial-gradient(circle at 50% 25%, rgba(3, 7, 18, 0.05) 0%, rgba(5, 12, 30, 0.25) 65%, rgba(2, 6, 23, 0.45) 100%);
   }
 
@@ -126,7 +141,8 @@
     color: black !important;
   }
 
-  body::before {
+  body::before,
+  .fixed-bg-wallpaper {
     display: none !important;
   }
 

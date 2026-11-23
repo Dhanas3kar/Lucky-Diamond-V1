@@ -1,0 +1,136 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Design tokens — dark-only theme ────────────────────────────────── */
+:root {
+  --luma-bg: transparent;
+  --luma-surface: rgba(10, 18, 38, 0.1);
+  --luma-surface-2: rgba(255, 255, 255, 0.05);
+  --luma-text: #f8fafc;
+  --luma-muted: #cbd5e1;
+  --luma-line: rgba(255, 255, 255, 0.1);
+  --luma-accent: #38bdf8;
+  --luma-soft: rgba(255, 255, 255, 0.06);
+  --luma-green: #4ade80;
+  --luma-green-bg: rgba(20, 83, 45, 0.3);
+  --luma-amber: #fcd34d;
+  --luma-amber-bg: rgba(120, 53, 15, 0.3);
+}
+
+/* ─── Base resets & background wallpaper ─────────────────────────────── */
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply m-0 text-luma-text font-body antialiased;
+    background-image: url('/bg-desktop.jpg');
+    background-size: cover;
+    background-position: center top;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    background-color: #030712;
+    min-height: 100vh;
+    position: relative;
+  }
+
+  /* Swap to portrait background on mobile */
+  @media (max-width: 639px) {
+    body {
+      background-image: url('/bg-mobile.jpg');
+    }
+  }
+
+  /* Ambient contrast overlay — subtle 90-95% transparent to let background artwork shine */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background: radial-gradient(circle at 50% 25%, rgba(3, 7, 18, 0.05) 0%, rgba(5, 12, 30, 0.25) 65%, rgba(2, 6, 23, 0.45) 100%);
+  }
+
+  button,
+  input,
+  select {
+    font: inherit;
+  }
+
+  button {
+    cursor: pointer;
+    color: inherit;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+  }
+}
+
+/* ─── Glassmorphism utilities ────────────────────────────────────────── */
+@layer utilities {
+  .glass-card {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.2), 0 0 0 1px var(--luma-line);
+  }
+
+  .glass-header {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.3);
+  }
+
+  .animate-marquee {
+    animation: marquee 26s linear infinite;
+  }
+
+  .animate-marquee-paused {
+    animation-play-state: paused !important;
+  }
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation-play-state: paused;
+  }
+}
+
+/* ─── Print styles ────────────────────────────────────────────────────── */
+@media print {
+  .print\:hidden,
+  header,
+  aside,
+  .scrim,
+  footer {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  body::before {
+    display: none !important;
+  }
+
+  .print\:break-inside-avoid {
+    break-inside: avoid;
+  }
+}

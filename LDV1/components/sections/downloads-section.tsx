@@ -168,43 +168,6 @@ export function DownloadsSection({ initialRecords }: DownloadsSectionProps) {
           <span className="text-sm">Try selecting a different draw or date.</span>
         </div>
       )}
-
-      {/* Google Sheets Client Entry Template Card */}
-      <div className="mt-8 bg-gradient-to-r from-blue-950/70 via-slate-900/80 to-blue-950/70 glass-card backdrop-blur-md border border-cyan-500/30 rounded-xl p-5 flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-start shadow-lg">
-        <div className="flex items-start gap-3.5">
-          <div className="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-400/40 grid place-items-center shrink-0 mt-0.5 text-emerald-400">
-            <FileText size={20} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <strong className="font-heading font-bold text-white text-base">
-                Google Sheets Daily Entry Template
-              </strong>
-              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">
-                Client CMS
-              </span>
-            </div>
-            <p className="text-xs text-slate-300 mt-1 max-w-xl leading-relaxed">
-              Use this spreadsheet format to enter daily winners for Lucky Diamond and publish them to the live website instantly. Supports automatic 2nd prize calculation.
-            </p>
-          </div>
-        </div>
-
-        <a
-          href="/lucky-diamond-entry-template.csv"
-          download="lucky-diamond-entry-template.csv"
-          className="flex items-center gap-2 bg-cyan-500/25 hover:bg-cyan-500/35 text-cyan-200 border border-cyan-400/50 px-4 py-2.5 rounded-lg text-xs font-bold transition-all shadow-sm shrink-0 whitespace-nowrap active:scale-95"
-        >
-          <Download size={15} />
-          Download Sheet Template (.CSV)
-        </a>
-      </div>
-
-      {/* Info notice */}
-      <div className="flex items-start gap-2.5 bg-luma-surface/80 glass-card backdrop-blur-md border border-luma-line rounded-[10px] px-4 py-[14px] mt-4 text-luma-muted text-sm leading-relaxed">
-        <FileText size={17} className="shrink-0 mt-0.5 text-cyan-400" />
-        Results are synchronized directly with your official Google Sheets entry or verified draw database. Use the template above to update daily draws anytime.
-      </div>
     </section>
   );
 }

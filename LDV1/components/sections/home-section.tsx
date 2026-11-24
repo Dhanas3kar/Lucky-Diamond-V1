@@ -40,14 +40,14 @@ export function HomeSection({
     results[0] || {
       drawId: "LUCKYDIAMOND_1110",
       drawName: "LUCKYDIAMOND",
-      drawNumber: 420,
-      date: dateStr || "23-11-2026",
-      isoDate: "2026-11-23",
+      drawNumber: 426,
+      date: dateStr || "24-11-2026",
+      isoDate: "2026-11-24",
       time: "11:10 AM",
       status: "published" as const,
       prizes: [
-        { label: "1ST PRIZE", displayName: "First Prize", amount: "₹10,000", number: "512" },
-        { label: "2ND PRIZE", displayName: "Second Prize", amount: "₹1,000", number: "12" },
+        { label: "1ST PRIZE", displayName: "First Prize", amount: "₹10,000", number: "723" },
+        { label: "2ND PRIZE", displayName: "Second Prize", amount: "₹1,000", number: "23" },
       ],
     };
 

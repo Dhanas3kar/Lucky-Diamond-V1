@@ -229,16 +229,24 @@ export function parseSheetData(csvText: string): SheetRowRecord[] {
 
 /**
  * Converts parsed records into the full 6-draw daily result list for a specific date.
- * If targetDMY has no published records, smartly falls back to the latest date that HAS published records.
+ * If targetDMY has no published records, smartly falls back to the latest date that HAS published records,
+ * unless isExplicitDate is true (which means user specifically navigated to a historical date in the Archive).
  */
 export function buildDrawResultsForDate(
   records: SheetRowRecord[],
-  targetDMY: string
+  targetDMY: string,
+  isExplicitDate: boolean = false
 ): { results: DrawResult[]; effectiveDate: string } {
   let activeDMY = targetDMY;
   let dateRecords = records.filter((r) => r.date === activeDMY);
+  const hasExactRecords = dateRecords.length > 0 && dateRecords.some((r) => r.status === "published");
 
-  // If no published records found for targetDMY, find the most recent date with published records!
+  // If user explicitly queried a historical date, and the sheet has no published records for that date:
+  if (isExplicitDate && !hasExactRecords) {
+    return { results: [], effectiveDate: targetDMY };
+  }
+
+  // If no published records found for targetDMY (e.g. today's live feed before first draw):
   if (dateRecords.length === 0 || dateRecords.every((r) => r.status === "awaiting")) {
     const publishedRecords = records.filter((r) => r.status === "published");
     if (publishedRecords.length > 0) {
@@ -299,7 +307,8 @@ export interface SheetFetchResult {
  */
 export async function fetchGoogleSheetResults(
   sheetIdOrUrl: string,
-  targetDMY: string
+  targetDMY: string,
+  isExplicitDate: boolean = false
 ): Promise<SheetFetchResult> {
   if (!sheetIdOrUrl) {
     return {
@@ -390,7 +399,7 @@ export async function fetchGoogleSheetResults(
       };
     }
 
-    const { results, effectiveDate } = buildDrawResultsForDate(records, targetDMY);
+    const { results, effectiveDate } = buildDrawResultsForDate(records, targetDMY, isExplicitDate);
 
     return {
       success: true,

@@ -111,6 +111,8 @@ export function HistorySection({ copiedDraw, onShare, activeDate }: HistorySecti
             <input
               type="date"
               value={selectedDate}
+              min="2026-10-01"
+              max="2026-11-24"
               onChange={(e) => setSelectedDate(e.target.value)}
               className="border-0 bg-transparent text-white text-sm outline-none w-full sm:w-auto"
             />

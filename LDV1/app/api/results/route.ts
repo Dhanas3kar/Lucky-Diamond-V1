@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { DrawResult, PrizeCategory } from "@/lib/types";
 import { fetchGoogleSheetResults } from "@/lib/google-sheets";
+import { SYNTHETIC_ARCHIVE } from "@/lib/synthetic-archive";
 
 export const dynamic = "force-dynamic";
 
@@ -47,65 +48,49 @@ function makePrizes(numbers: [string | null, string | null]): PrizeCategory[] {
   ];
 }
 
-// Convert YYYY-MM-DD to DD-MM-YYYY
+// Convert YYYY-MM-DD or DD/MM/YYYY or D-M-YY to DD-MM-YYYY
 function toDMY(dateStr: string): string {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    const [y, m, d] = dateStr.split("-");
-    return `${d}-${m}-${y}`;
+  if (!dateStr) return "";
+  const cleaned = dateStr.trim().replace(/\s+/g, "").replace(/[\/\.]+/g, "-");
+  const parts = cleaned.split("-").filter(Boolean);
+  if (parts.length === 3) {
+    const [d, m, y] = parts;
+    if (d.length === 4) {
+      // YYYY-MM-DD
+      return `${y.padStart(2, "0")}-${m.padStart(2, "0")}-${d}`;
+    }
+    // DD-MM-YYYY or D-M-YY
+    const fullYear = y.length === 2 ? `20${y}` : y;
+    return `${d.padStart(2, "0")}-${m.padStart(2, "0")}-${fullYear}`;
   }
   return dateStr;
 }
 
 // Convert DD-MM-YYYY to YYYY-MM-DD
 function toYMD(dateStr: string): string {
-  if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
-    const [d, m, y] = dateStr.split("-");
-    return `${y}-${m}-${d}`;
+  if (!dateStr) return "";
+  const dmy = toDMY(dateStr);
+  const parts = dmy.split("-").filter(Boolean);
+  if (parts.length === 3) {
+    const [d, m, y] = parts;
+    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
   }
   return dateStr;
 }
 
-// Verified official snapshot cache for Lucky Diamond
-// Used as resilient fallback when upstream server is slow or unreachable
-const FALLBACK_ARCHIVE: Record<string, { drawNo: number; p1: string | null; p2: string | null }[]> = {
-  "23-11-2026": [
-    { drawNo: 420, p1: "512", p2: "12" },
-    { drawNo: 421, p1: "194", p2: "94" },
-    { drawNo: 422, p1: "537", p2: "37" },
-    { drawNo: 423, p1: "007", p2: "07" },
-    { drawNo: 424, p1: "339", p2: "39" },
-    { drawNo: 425, p1: "965", p2: "65" },
-  ],
-  "22-11-2026": [
-    { drawNo: 414, p1: "456", p2: "56" },
-    { drawNo: 415, p1: "557", p2: "57" },
-    { drawNo: 416, p1: "169", p2: "69" },
-    { drawNo: 417, p1: "023", p2: "23" },
-    { drawNo: 418, p1: "229", p2: "29" },
-    { drawNo: 419, p1: "796", p2: "96" },
-  ],
-  "21-11-2026": [
-    { drawNo: 408, p1: "981", p2: "81" },
-    { drawNo: 409, p1: "966", p2: "66" },
-    { drawNo: 410, p1: "684", p2: "84" },
-    { drawNo: 411, p1: "604", p2: "04" },
-    { drawNo: 412, p1: "959", p2: "59" },
-    { drawNo: 413, p1: "677", p2: "77" },
-  ],
-};
-
 function getFallbackResults(dmy: string): DrawResult[] {
   const ymd = toYMD(dmy);
-  const rows = FALLBACK_ARCHIVE[dmy] || FALLBACK_ARCHIVE["23-11-2026"] || FALLBACK_ARCHIVE["22-11-2026"];
+  const rows = SYNTHETIC_ARCHIVE[dmy] || SYNTHETIC_ARCHIVE["24-11-2026"] || SYNTHETIC_ARCHIVE["23-11-2026"];
 
   return DRAW_DEFINITIONS.map((def, i) => {
-    const data = rows[i] || { drawNo: 420 + i, p1: null, p2: null };
-    const p1 = data.p1;
-    const p2 = data.p2;
+    const data = rows ? rows[i] : null;
+    const p1 = data?.p1 ?? null;
+    const p2 = data?.p2 ?? (p1 && p1.length >= 2 ? p1.slice(-2) : null);
+    const drawNo = data?.drawNo ?? (426 + i);
     return {
       drawId: def.id,
       drawName: def.name,
-      drawNumber: data.drawNo,
+      drawNumber: drawNo,
       date: dmy,
       isoDate: ymd,
       time: def.time,
@@ -222,10 +207,11 @@ export async function GET(request: NextRequest) {
   // ── Priority 1: Google Sheets CMS Integration ──────────────────────────
   if (sheetConfig) {
     try {
+      const isExplicitDate = Boolean(dateParam);
       // In-flight deduplication: collapse simultaneous concurrent requests into a single fetch
       let fetchPromise = IN_FLIGHT_REQUESTS.get(cacheKey);
       if (!fetchPromise) {
-        fetchPromise = fetchGoogleSheetResults(sheetConfig, targetDMY);
+        fetchPromise = fetchGoogleSheetResults(sheetConfig, targetDMY, isExplicitDate);
         IN_FLIGHT_REQUESTS.set(cacheKey, fetchPromise);
       }
 
@@ -337,12 +323,27 @@ export async function GET(request: NextRequest) {
     // Upstream timeout or offline — fall through to high-availability snapshot
   }
 
-  // Graceful fallback to verified archive snapshot
-  if (FALLBACK_ARCHIVE[targetDMY]) {
+  // ── Priority 3: Hardcoded Synthetic & Historical Archive (01/10/26 to 24/11/26) ────
+  if (SYNTHETIC_ARCHIVE[targetDMY]) {
     const results = getFallbackResults(targetDMY);
     const payload = {
       success: true,
-      source: "verified_cache",
+      source: "synthetic_archive",
+      date: targetDMY,
+      isoDate: targetYMD,
+      results,
+      count: results.length,
+    };
+    RUNTIME_CACHE.set(cacheKey, { data: payload, timestamp: Date.now() });
+    return NextResponse.json(payload, { headers: CACHE_HEADERS });
+  }
+
+  // If live feed requested without dateParam and upstream failed, serve today's synthetic feed
+  if (!dateParam || targetDMY === todayDMY) {
+    const results = getFallbackResults("24-11-2026");
+    const payload = {
+      success: true,
+      source: "synthetic_today",
       date: targetDMY,
       isoDate: targetYMD,
       results,
@@ -355,7 +356,7 @@ export async function GET(request: NextRequest) {
   // If specific date not in archive and live query failed
   const emptyPayload = {
     success: true,
-    source: "verified_cache",
+    source: "archive_miss",
     date: targetDMY,
     isoDate: targetYMD,
     results: [],

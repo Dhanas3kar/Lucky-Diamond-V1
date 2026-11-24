@@ -88,6 +88,8 @@ export function DownloadsSection({ initialRecords }: DownloadsSectionProps) {
           <input
             type="date"
             value={dateFilter}
+            min="2026-10-01"
+            max="2026-11-24"
             onChange={(e) => setDateFilter(e.target.value)}
             className="border-0 bg-transparent text-white text-sm outline-none flex-1"
             placeholder="Filter by date"

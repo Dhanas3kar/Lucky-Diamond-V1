@@ -6,6 +6,7 @@
 // ---------------------------------------------------------------------------
 "use client";
 
+import { useState, useEffect } from "react";
 import { CalendarDays, FileText, Share2, Check, RefreshCw } from "lucide-react";
 import type { DrawResult } from "@/lib/types";
 import { DRAWS, getTodayDisplay, getTodayIST, getExpectedDrawNumber } from "@/lib/data";
@@ -34,17 +35,24 @@ export function HomeSection({
   onNavigate,
   onRefresh,
 }: HomeSectionProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Find currently selected draw, fallback to empty awaiting placeholder for today
   const selectedIndex = Math.max(0, DRAWS.findIndex((d) => d.id === selectedDrawId));
   const selectedDef = DRAWS[selectedIndex] || DRAWS[0];
-  const { dmy: todayDMY, ymd: todayYMD } = getTodayIST();
+  const { dmy: todayDMY, ymd: todayYMD } = mounted
+    ? getTodayIST()
+    : { dmy: "--/--/----", ymd: "" };
 
   const currentResult =
     results.find((r) => r.drawId === selectedDrawId) ||
     results[0] || {
       drawId: selectedDef.id,
       drawName: selectedDef.name,
-      drawNumber: getExpectedDrawNumber(todayDMY, selectedIndex),
+      drawNumber: mounted ? getExpectedDrawNumber(todayDMY, selectedIndex) : 0,
       date: dateStr ? dateStr.split("-").reverse().join("-") : todayDMY,
       isoDate: todayYMD,
       time: selectedDef.time,
@@ -54,6 +62,12 @@ export function HomeSection({
         { label: "2ND PRIZE", displayName: "Second Prize", amount: "₹1,000", number: null },
       ],
     };
+
+  const displayDateLabel = dateStr
+    ? getTodayDisplay(dateStr)
+    : mounted
+    ? getTodayDisplay()
+    : "Loading date...";
 
   const isPublished = currentResult.status === "published";
   const p1 = currentResult.prizes[0];
@@ -70,7 +84,7 @@ export function HomeSection({
         <div className="flex items-center gap-2 flex-wrap">
           <span className="flex items-center gap-2 text-slate-200 text-xs sm:text-sm bg-black/15 px-3 py-1 rounded-lg font-mono border border-white/10">
             <CalendarDays size={14} className="text-cyan-400" />
-            {getTodayDisplay(dateStr)}
+            {displayDateLabel}
           </span>
           {onRefresh && (
             <button

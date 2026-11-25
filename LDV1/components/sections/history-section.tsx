@@ -12,7 +12,7 @@ import {
   CircleHelp,
 } from "lucide-react";
 import type { DrawResult } from "@/lib/types";
-import { DRAWS, fetchResults, getTodayIST } from "@/lib/data";
+import { DRAWS, fetchResults, fetchResultsRange, getYesterdayIST } from "@/lib/data";
 import { DrawGrid } from "@/components/draw-grid";
 
 type HistorySectionProps = {
@@ -21,35 +21,52 @@ type HistorySectionProps = {
   activeDate?: string;
 };
 
-// Default initial date: active date or today in IST (YYYY-MM-DD)
-function getInitialDate(activeDate?: string): string {
-  if (activeDate && /^\d{4}-\d{2}-\d{2}$/.test(activeDate)) {
-    return activeDate;
-  }
-  return getTodayIST().ymd;
+function shiftYMD(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  const dd = String(dt.getUTCDate()).padStart(2, "0");
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const yyyy = String(dt.getUTCFullYear());
+  return `${yyyy}-${mm}-${dd}`;
 }
 
-export function HistorySection({ copiedDraw, onShare, activeDate }: HistorySectionProps) {
-  const [selectedDate, setSelectedDate] = useState(getInitialDate(activeDate));
+function formatDisplayYMD(ymd: string): string {
+  return new Date(`${ymd}T12:00:00+05:30`).toLocaleDateString("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+export function HistorySection({ copiedDraw, onShare }: HistorySectionProps) {
+  const yesterdayYMD = getYesterdayIST().ymd;
+  const [viewMode, setViewMode] = useState<"single" | "range">("single");
+  const [selectedDate, setSelectedDate] = useState(yesterdayYMD);
+  const [fromDate, setFromDate] = useState(() => shiftYMD(yesterdayYMD, -6));
+  const [toDate, setToDate] = useState(yesterdayYMD);
   const [selectedDraw, setSelectedDraw] = useState("ALL");
   const [results, setResults] = useState<DrawResult[]>([]);
   const [loading, setLoading] = useState(false);
-
-  // Keep in sync if activeDate becomes available
-  useEffect(() => {
-    if (activeDate && /^\d{4}-\d{2}-\d{2}$/.test(activeDate)) {
-      setSelectedDate(activeDate);
-    }
-  }, [activeDate]);
 
   useEffect(() => {
     let mounted = true;
     async function loadHistory() {
       setLoading(true);
       try {
-        const data = await fetchResults(selectedDate);
-        if (mounted) {
-          setResults(data.results || []);
+        if (viewMode === "single") {
+          const safeDate = selectedDate > yesterdayYMD ? yesterdayYMD : selectedDate;
+          const data = await fetchResults(safeDate);
+          if (mounted) {
+            setResults(data.results || []);
+          }
+        } else {
+          const safeTo = toDate > yesterdayYMD ? yesterdayYMD : toDate;
+          const safeFrom = fromDate > safeTo ? safeTo : fromDate;
+          const data = await fetchResultsRange(safeFrom, safeTo);
+          if (mounted) {
+            setResults(data.results || []);
+          }
         }
       } catch {
         if (mounted) setResults([]);
@@ -61,24 +78,20 @@ export function HistorySection({ copiedDraw, onShare, activeDate }: HistorySecti
     return () => {
       mounted = false;
     };
-  }, [selectedDate]);
+  }, [viewMode, selectedDate, fromDate, toDate, yesterdayYMD]);
 
   const filteredResults = results.filter(
     (r) => selectedDraw === "ALL" || r.drawId === selectedDraw
   );
 
   const shiftDate = (days: number) => {
-    const d = new Date(selectedDate);
-    d.setDate(d.getDate() + days);
-    setSelectedDate(d.toISOString().split("T")[0]);
+    const next = shiftYMD(selectedDate, days);
+    if (next <= yesterdayYMD && next >= "2026-10-01") {
+      setSelectedDate(next);
+    }
   };
 
-  const displayDate = new Date(selectedDate).toLocaleDateString("en-IN", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const displayDate = formatDisplayYMD(selectedDate);
 
   return (
     <section className="py-[42px] max-sm:py-8">
@@ -92,37 +105,102 @@ export function HistorySection({ copiedDraw, onShare, activeDate }: HistorySecti
             Result history
           </h2>
           <p className="text-base text-luma-muted mt-[9px] max-w-[620px] leading-relaxed">
-            Choose a date to view its official verified draw results.
+            Choose a previous date or date range to view official verified draw results.
           </p>
         </div>
 
-        {/* Date control — 90-95% transparent */}
-        <div className="flex items-center gap-2 max-sm:w-full">
-          <button
-            className="grid place-items-center w-10 h-10 border border-white/10 rounded-lg bg-black/15 hover:bg-white/10 transition-colors shadow-sm text-slate-200"
-            onClick={() => shiftDate(-1)}
-            aria-label="Previous day"
-          >
-            <ChevronLeft size={17} />
-          </button>
-          <div className="flex items-center gap-[9px] bg-black/15 border border-white/10 rounded-lg px-3 py-[10px] text-slate-300 flex-1 sm:flex-initial shadow-sm">
-            <CalendarDays size={17} className="text-cyan-400" />
-            <input
-              type="date"
-              value={selectedDate}
-              min="2026-10-01"
-              max={getTodayIST().ymd}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="border-0 bg-transparent text-white text-sm outline-none w-full sm:w-auto"
-            />
+        {/* Mode toggle + Date control — 90-95% transparent */}
+        <div className="flex flex-col items-end gap-2.5 max-sm:w-full max-sm:items-stretch">
+          <div className="inline-flex rounded-lg bg-black/25 border border-white/10 p-1 self-end max-sm:self-start">
+            <button
+              type="button"
+              onClick={() => setViewMode("single")}
+              className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
+                viewMode === "single"
+                  ? "bg-cyan-400 text-slate-950 font-bold"
+                  : "text-slate-300 hover:text-white"
+              }`}
+            >
+              Single Day
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("range")}
+              className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
+                viewMode === "range"
+                  ? "bg-cyan-400 text-slate-950 font-bold"
+                  : "text-slate-300 hover:text-white"
+              }`}
+            >
+              Date Range
+            </button>
           </div>
-          <button
-            className="grid place-items-center w-10 h-10 border border-white/10 rounded-lg bg-black/15 hover:bg-white/10 transition-colors shadow-sm text-slate-200"
-            onClick={() => shiftDate(1)}
-            aria-label="Next day"
-          >
-            <ChevronRight size={17} />
-          </button>
+
+          {viewMode === "single" ? (
+            <div className="flex items-center gap-2 max-sm:w-full">
+              <button
+                className="grid place-items-center w-10 h-10 border border-white/10 rounded-lg bg-black/15 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm text-slate-200"
+                onClick={() => shiftDate(-1)}
+                disabled={selectedDate <= "2026-10-01"}
+                aria-label="Previous day"
+              >
+                <ChevronLeft size={17} />
+              </button>
+              <div className="flex items-center gap-[9px] bg-black/15 border border-white/10 rounded-lg px-3 py-[10px] text-slate-300 flex-1 sm:flex-initial shadow-sm">
+                <CalendarDays size={17} className="text-cyan-400" />
+                <input
+                  type="date"
+                  value={selectedDate}
+                  min="2026-10-01"
+                  max={yesterdayYMD}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val) setSelectedDate(val > yesterdayYMD ? yesterdayYMD : val);
+                  }}
+                  className="border-0 bg-transparent text-white text-sm outline-none w-full sm:w-auto"
+                />
+              </div>
+              <button
+                className="grid place-items-center w-10 h-10 border border-white/10 rounded-lg bg-black/15 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm text-slate-200"
+                onClick={() => shiftDate(1)}
+                disabled={selectedDate >= yesterdayYMD}
+                aria-label="Next day"
+              >
+                <ChevronRight size={17} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 flex-wrap max-sm:w-full">
+              <div className="flex items-center gap-2 bg-black/15 border border-white/10 rounded-lg px-3 py-[10px] text-slate-300 flex-1 sm:flex-initial shadow-sm">
+                <span className="text-xs text-slate-400">From</span>
+                <input
+                  type="date"
+                  value={fromDate}
+                  min="2026-10-01"
+                  max={toDate}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val) setFromDate(val > toDate ? toDate : val);
+                  }}
+                  className="border-0 bg-transparent text-white text-sm outline-none w-full sm:w-auto"
+                />
+              </div>
+              <div className="flex items-center gap-2 bg-black/15 border border-white/10 rounded-lg px-3 py-[10px] text-slate-300 flex-1 sm:flex-initial shadow-sm">
+                <span className="text-xs text-slate-400">To</span>
+                <input
+                  type="date"
+                  value={toDate}
+                  min={fromDate}
+                  max={yesterdayYMD}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val) setToDate(val > yesterdayYMD ? yesterdayYMD : val);
+                  }}
+                  className="border-0 bg-transparent text-white text-sm outline-none w-full sm:w-auto"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -156,7 +234,18 @@ export function HistorySection({ copiedDraw, onShare, activeDate }: HistorySecti
 
       {/* Date display */}
       <p className="text-xs text-slate-300 mt-5 mb-2">
-        Showing results for <strong className="text-white font-bold">{displayDate}</strong>
+        {viewMode === "single" ? (
+          <>
+            Showing results for <strong className="text-white font-bold">{displayDate}</strong>
+          </>
+        ) : (
+          <>
+            Showing results from{" "}
+            <strong className="text-white font-bold">{formatDisplayYMD(fromDate)}</strong> to{" "}
+            <strong className="text-white font-bold">{formatDisplayYMD(toDate)}</strong>{" "}
+            <span className="text-slate-400">({filteredResults.length} draws)</span>
+          </>
+        )}
       </p>
 
       {/* Notice — 90-95% transparent banner */}

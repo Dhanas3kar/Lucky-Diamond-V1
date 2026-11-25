@@ -202,12 +202,58 @@ function parseHistoryResults(html: string, reqDateDMY: string): DrawResult[] {
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const dateParam = searchParams.get("date"); // can be YYYY-MM-DD or DD-MM-YYYY
+  const fromParam = searchParams.get("from");
+  const toParam = searchParams.get("to");
   const refreshParam = searchParams.get("refresh") === "true";
   const customSheet = searchParams.get("sheet");
   const sheetConfig = customSheet || process.env.GOOGLE_SHEET_ID || process.env.GOOGLE_SHEET_URL;
 
   // Determine target dates in IST (resets at 12:00 AM IST every night)
-  const { dmy: todayDMY } = getTodayIST();
+  const { dmy: todayDMY, ymd: todayYMD } = getTodayIST();
+
+  // ── Date Range Query (Previous Results range view, excluding today) ─────
+  if (fromParam && toParam) {
+    const fromYMD = toYMD(fromParam);
+    const toYMDVal = toYMD(toParam);
+    const [fy, fm, fd] = fromYMD.split("-").map(Number);
+    const [ty, tm, td] = toYMDVal.split("-").map(Number);
+    const startUtc = Date.UTC(fy, fm - 1, fd);
+    const endUtc = Date.UTC(ty, tm - 1, td);
+    const [cy, cm, cd] = todayYMD.split("-").map(Number);
+    const yesterdayUtc = Date.UTC(cy, cm - 1, cd - 1);
+
+    const effectiveEnd = Math.min(endUtc, yesterdayUtc);
+    const rangeResults: DrawResult[] = [];
+
+    if (!isNaN(startUtc) && !isNaN(effectiveEnd) && startUtc <= effectiveEnd) {
+      const maxDays = 60;
+      let count = 0;
+      for (let t = effectiveEnd; t >= startUtc && count < maxDays; t -= 86400000) {
+        const dt = new Date(t);
+        const dd = String(dt.getUTCDate()).padStart(2, "0");
+        const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+        const yyyy = String(dt.getUTCFullYear());
+        const dmy = `${dd}-${mm}-${yyyy}`;
+        if (SYNTHETIC_ARCHIVE[dmy]) {
+          rangeResults.push(...getFallbackResults(dmy));
+        }
+        count++;
+      }
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        source: "range_archive",
+        from: fromYMD,
+        to: toYMDVal,
+        results: rangeResults,
+        count: rangeResults.length,
+      },
+      { headers: CACHE_HEADERS }
+    );
+  }
+
   const targetDMY = dateParam ? toDMY(dateParam) : todayDMY;
   const targetYMD = toYMD(targetDMY);
   const cacheKey = `${sheetConfig ? "sheet_" : ""}${dateParam ? `hist_${targetDMY}` : `today_${todayDMY}`}`;

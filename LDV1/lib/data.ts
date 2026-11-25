@@ -60,6 +60,36 @@ export async function fetchResults(date?: string): Promise<FetchResultsResponse>
 }
 
 /**
+ * Fetch historical results across an inclusive date range (from..to in YYYY-MM-DD).
+ */
+export async function fetchResultsRange(
+  from: string,
+  to: string
+): Promise<FetchResultsResponse> {
+  const ts = Date.now();
+  const url = `/api/results?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&_t=${ts}`;
+  try {
+    const res = await fetch(url, {
+      cache: "no-store",
+      headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP error ${res.status}`);
+    }
+    const data: FetchResultsResponse = await res.json();
+    return data;
+  } catch (err: any) {
+    console.error("fetchResultsRange error:", err);
+    return {
+      success: false,
+      results: [],
+      count: 0,
+      error: err?.message || "Failed to fetch range results",
+    };
+  }
+}
+
+/**
  * Filter dynamic results by query and draw filter.
  */
 export function filterResults(
@@ -130,6 +160,23 @@ export function getTodayIST(): { dmy: string; ymd: string } {
   return {
     dmy: `${day}-${month}-${year}`,
     ymd: `${year}-${month}-${day}`,
+  };
+}
+
+/**
+ * Returns yesterday's date in Indian Standard Time (IST / Asia/Kolkata)
+ * as both DD-MM-YYYY and YYYY-MM-DD.
+ */
+export function getYesterdayIST(): { dmy: string; ymd: string } {
+  const { ymd } = getTodayIST();
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d - 1));
+  const dd = String(dt.getUTCDate()).padStart(2, "0");
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const yyyy = String(dt.getUTCFullYear());
+  return {
+    dmy: `${dd}-${mm}-${yyyy}`,
+    ymd: `${yyyy}-${mm}-${dd}`,
   };
 }
 

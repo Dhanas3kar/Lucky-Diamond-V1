@@ -6,7 +6,7 @@
 
 import { useState, useEffect } from "react";
 import { Download, FileText } from "lucide-react";
-import { DRAWS, fetchResults, getTodayIST } from "@/lib/data";
+import { fetchResults, getTodayIST } from "@/lib/data";
 import type { DrawResult } from "@/lib/types";
 
 type DownloadsSectionProps = {
@@ -69,7 +69,6 @@ function downloadAllCsv(records: DrawResult[]) {
 
 export function DownloadsSection({ initialRecords }: DownloadsSectionProps) {
   const [dateFilter, setDateFilter] = useState("");
-  const [drawFilter, setDrawFilter] = useState("ALL");
   const [records, setRecords] = useState<DrawResult[]>(initialRecords);
   const [loading, setLoading] = useState(false);
 
@@ -98,10 +97,7 @@ export function DownloadsSection({ initialRecords }: DownloadsSectionProps) {
     };
   }, [dateFilter, initialRecords]);
 
-  const filteredRecords = records.filter((r) => {
-    if (drawFilter !== "ALL" && r.drawId !== drawFilter) return false;
-    return true;
-  });
+  const filteredRecords = records;
 
   return (
     <section className="py-[42px] max-sm:py-8">
@@ -114,28 +110,12 @@ export function DownloadsSection({ initialRecords }: DownloadsSectionProps) {
           Downloads
         </h2>
         <p className="text-base text-luma-muted mt-[9px] max-w-[620px] leading-relaxed">
-          Download clean result data files for any draw or date.
+          Download clean result data files for any date.
         </p>
       </div>
 
       {/* Filters — 95% transparent, no blur */}
       <div className="flex items-center gap-2.5 mt-5 flex-wrap">
-        <div className="flex items-center gap-[9px] bg-black/10 border border-white/10 rounded-lg px-3 py-[10px] text-slate-300">
-          <FileText size={16} className="shrink-0 text-cyan-400" />
-          <select
-            value={drawFilter}
-            onChange={(e) => setDrawFilter(e.target.value)}
-            className="border-0 bg-transparent text-white text-sm outline-none cursor-pointer"
-          >
-            <option value="ALL" className="bg-slate-900 text-white">All draws</option>
-            {DRAWS.map((d) => (
-              <option key={d.id} value={d.id} className="bg-slate-900 text-white">
-                {d.name} ({d.time})
-              </option>
-            ))}
-          </select>
-        </div>
-
         <div className="flex items-center gap-[9px] bg-black/10 border border-white/10 rounded-lg px-3 py-[10px] text-slate-300 max-sm:w-full">
           <input
             type="date"

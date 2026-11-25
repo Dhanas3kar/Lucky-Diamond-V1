@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { DrawResult, PrizeCategory } from "@/lib/types";
 import { fetchGoogleSheetResults } from "@/lib/google-sheets";
 import { SYNTHETIC_ARCHIVE } from "@/lib/synthetic-archive";
+import { getTodayIST, getExpectedDrawNumber } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
@@ -78,15 +79,32 @@ function toYMD(dateStr: string): string {
   return dateStr;
 }
 
+function getEmptyScheduledResults(dmy: string): DrawResult[] {
+  const ymd = toYMD(dmy);
+  return DRAW_DEFINITIONS.map((def, i) => ({
+    drawId: def.id,
+    drawName: def.name,
+    drawNumber: getExpectedDrawNumber(dmy, i),
+    date: dmy,
+    isoDate: ymd,
+    time: def.time,
+    status: "awaiting" as const,
+    prizes: makePrizes([null, null]),
+  }));
+}
+
 function getFallbackResults(dmy: string): DrawResult[] {
   const ymd = toYMD(dmy);
-  const rows = SYNTHETIC_ARCHIVE[dmy] || SYNTHETIC_ARCHIVE["24-11-2026"] || SYNTHETIC_ARCHIVE["23-11-2026"];
+  const rows = SYNTHETIC_ARCHIVE[dmy];
+  if (!rows) {
+    return getEmptyScheduledResults(dmy);
+  }
 
   return DRAW_DEFINITIONS.map((def, i) => {
-    const data = rows ? rows[i] : null;
+    const data = rows[i] ?? null;
     const p1 = data?.p1 ?? null;
     const p2 = data?.p2 ?? (p1 && p1.length >= 2 ? p1.slice(-2) : null);
-    const drawNo = data?.drawNo ?? (426 + i);
+    const drawNo = data?.drawNo ?? getExpectedDrawNumber(dmy, i);
     return {
       drawId: def.id,
       drawName: def.name,
@@ -122,22 +140,23 @@ function parseTodayResults(html: string): DrawResult[] {
     extractedPrizes.push({ p1, p2, drawNo, date });
   }
 
-  const todayDMY = new Date().toLocaleDateString("en-GB").replace(/\//g, "-");
-  const todayYMD = toYMD(todayDMY);
+  const { dmy: todayDMY, ymd: todayYMD } = getTodayIST();
 
   return DRAW_DEFINITIONS.map((def, i) => {
     const extracted = extractedPrizes[i];
-    const p1 = extracted?.p1 ?? null;
-    const p2 = extracted?.p2 ?? (p1 && p1.length >= 2 ? p1.slice(-2) : null);
-    const drawNo = extracted?.drawNo || (420 + i);
-    const date = extracted?.date || todayDMY;
+    const parsedDate = extracted?.date ? toDMY(extracted.date) : todayDMY;
+    // Reject stale results from a previous day after 12:00 AM IST
+    const isToday = parsedDate === todayDMY;
+    const p1 = isToday ? (extracted?.p1 ?? null) : null;
+    const p2 = isToday ? (extracted?.p2 ?? (p1 && p1.length >= 2 ? p1.slice(-2) : null)) : null;
+    const drawNo = (isToday && extracted?.drawNo) ? extracted.drawNo : getExpectedDrawNumber(todayDMY, i);
 
     return {
       drawId: def.id,
       drawName: def.name,
       drawNumber: drawNo,
-      date: date,
-      isoDate: toYMD(date) || todayYMD,
+      date: todayDMY,
+      isoDate: todayYMD,
       time: def.time,
       status: p1 ? "published" : "awaiting",
       prizes: makePrizes([p1, p2]),
@@ -187,8 +206,8 @@ export async function GET(request: NextRequest) {
   const customSheet = searchParams.get("sheet");
   const sheetConfig = customSheet || process.env.GOOGLE_SHEET_ID || process.env.GOOGLE_SHEET_URL;
 
-  // Determine target dates
-  const todayDMY = new Date().toLocaleDateString("en-GB").replace(/\//g, "-");
+  // Determine target dates in IST (resets at 12:00 AM IST every night)
+  const { dmy: todayDMY } = getTodayIST();
   const targetDMY = dateParam ? toDMY(dateParam) : todayDMY;
   const targetYMD = toYMD(targetDMY);
   const cacheKey = `${sheetConfig ? "sheet_" : ""}${dateParam ? `hist_${targetDMY}` : `today_${todayDMY}`}`;
@@ -233,9 +252,11 @@ export async function GET(request: NextRequest) {
         RUNTIME_CACHE.set(cacheKey, { data: payload, timestamp: Date.now() });
         return NextResponse.json(payload, { headers: CACHE_HEADERS });
       }
-    } catch (sheetErr) {
+    } catch (sheetErr: any) {
       IN_FLIGHT_REQUESTS.delete(cacheKey);
-      console.warn("Google Sheet fetch error, falling back to backup sources:", sheetErr);
+      if (sheetErr?.name !== "AbortError") {
+        console.warn("Google Sheet fetch notice:", sheetErr?.message || sheetErr);
+      }
       // Graceful high-availability fallback to stale cache if available
       const stale = RUNTIME_CACHE.get(cacheKey);
       if (stale) {
@@ -338,14 +359,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(payload, { headers: CACHE_HEADERS });
   }
 
-  // If live feed requested without dateParam and upstream failed, serve today's synthetic feed
+  // If live feed requested without dateParam (or for today) and no results are published yet,
+  // return today's updated date and all 6 scheduled draw slots with empty placeholders
   if (!dateParam || targetDMY === todayDMY) {
-    const results = getFallbackResults("24-11-2026");
+    const results = getEmptyScheduledResults(todayDMY);
     const payload = {
       success: true,
-      source: "synthetic_today",
-      date: targetDMY,
-      isoDate: targetYMD,
+      source: "daily_schedule_reset",
+      date: todayDMY,
+      isoDate: toYMD(todayDMY),
       results,
       count: results.length,
     };

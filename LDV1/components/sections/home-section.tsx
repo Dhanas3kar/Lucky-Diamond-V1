@@ -8,7 +8,7 @@
 
 import { CalendarDays, FileText, Share2, Check, RefreshCw } from "lucide-react";
 import type { DrawResult } from "@/lib/types";
-import { getTodayDisplay } from "@/lib/data";
+import { DRAWS, getTodayDisplay, getTodayIST, getExpectedDrawNumber } from "@/lib/data";
 import type { SectionId } from "@/components/topbar";
 
 type HomeSectionProps = {
@@ -34,20 +34,24 @@ export function HomeSection({
   onNavigate,
   onRefresh,
 }: HomeSectionProps) {
-  // Find currently selected draw, fallback to first draw
+  // Find currently selected draw, fallback to empty awaiting placeholder for today
+  const selectedIndex = Math.max(0, DRAWS.findIndex((d) => d.id === selectedDrawId));
+  const selectedDef = DRAWS[selectedIndex] || DRAWS[0];
+  const { dmy: todayDMY, ymd: todayYMD } = getTodayIST();
+
   const currentResult =
     results.find((r) => r.drawId === selectedDrawId) ||
     results[0] || {
-      drawId: "LUCKYDIAMOND_1110",
-      drawName: "LUCKYDIAMOND",
-      drawNumber: 426,
-      date: dateStr || "24-11-2026",
-      isoDate: "2026-11-24",
-      time: "11:10 AM",
-      status: "published" as const,
+      drawId: selectedDef.id,
+      drawName: selectedDef.name,
+      drawNumber: getExpectedDrawNumber(todayDMY, selectedIndex),
+      date: dateStr ? dateStr.split("-").reverse().join("-") : todayDMY,
+      isoDate: todayYMD,
+      time: selectedDef.time,
+      status: "awaiting" as const,
       prizes: [
-        { label: "1ST PRIZE", displayName: "First Prize", amount: "₹10,000", number: "723" },
-        { label: "2ND PRIZE", displayName: "Second Prize", amount: "₹1,000", number: "23" },
+        { label: "1ST PRIZE", displayName: "First Prize", amount: "₹10,000", number: null },
+        { label: "2ND PRIZE", displayName: "Second Prize", amount: "₹1,000", number: null },
       ],
     };
 

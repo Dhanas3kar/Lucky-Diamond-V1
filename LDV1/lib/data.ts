@@ -112,12 +112,50 @@ export function buildDownloadEntries(records: DrawResult[]): DownloadEntry[] {
 }
 
 /**
+ * Returns today's date in Indian Standard Time (IST / Asia/Kolkata)
+ * as both DD-MM-YYYY and YYYY-MM-DD, resetting cleanly at 12:00 AM IST.
+ */
+export function getTodayIST(): { dmy: string; ymd: string } {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).formatToParts(new Date());
+
+  const day = parts.find((p) => p.type === "day")?.value ?? "01";
+  const month = parts.find((p) => p.type === "month")?.value ?? "01";
+  const year = parts.find((p) => p.type === "year")?.value ?? "2026";
+
+  return {
+    dmy: `${day}-${month}-${year}`,
+    ymd: `${year}-${month}-${day}`,
+  };
+}
+
+/**
+ * Computes the sequential draw number for a given DD-MM-YYYY date and 0-based draw index (0..5).
+ * Anchored to 24-11-2026 draw #426..#431.
+ */
+export function getExpectedDrawNumber(dmy: string, drawIndex: number): number {
+  const match = dmy.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (!match) return 0;
+  const [, dd, mm, yyyy] = match;
+  const targetUtc = Date.UTC(Number(yyyy), Number(mm) - 1, Number(dd));
+  const anchorUtc = Date.UTC(2026, 10, 24); // 24-11-2026
+  const diffDays = Math.round((targetUtc - anchorUtc) / (1000 * 60 * 60 * 24));
+  const num = 426 + diffDays * 6 + drawIndex;
+  return num > 0 ? num : 0;
+}
+
+/**
  * Format a date string for display in the hero pill.
  */
 export function getTodayDisplay(customDate?: string): string {
-  const d = customDate ? new Date(customDate) : new Date();
+  const d = customDate ? new Date(`${customDate}T12:00:00+05:30`) : new Date();
   if (isNaN(d.getTime())) {
     return new Date().toLocaleDateString("en-IN", {
+      timeZone: "Asia/Kolkata",
       weekday: "long",
       day: "numeric",
       month: "long",
@@ -125,6 +163,7 @@ export function getTodayDisplay(customDate?: string): string {
     });
   }
   return d.toLocaleDateString("en-IN", {
+    timeZone: "Asia/Kolkata",
     weekday: "long",
     day: "numeric",
     month: "long",

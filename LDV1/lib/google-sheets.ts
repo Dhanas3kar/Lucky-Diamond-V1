@@ -5,6 +5,7 @@
 // ---------------------------------------------------------------------------
 
 import type { DrawResult, PrizeCategory } from "@/lib/types";
+import { getExpectedDrawNumber } from "@/lib/data";
 
 export const DRAW_DEFINITIONS = [
   { id: "LUCKYDIAMOND_1110", name: "LUCKYDIAMOND", time: "11:10 AM", rawTime: "11:10:00", sequence: 1 },
@@ -229,46 +230,34 @@ export function parseSheetData(csvText: string): SheetRowRecord[] {
 
 /**
  * Converts parsed records into the full 6-draw daily result list for a specific date.
- * If targetDMY has no published records, smartly falls back to the latest date that HAS published records,
- * unless isExplicitDate is true (which means user specifically navigated to a historical date in the Archive).
+ * Never falls back to a previous day's results: if targetDMY has no entries yet (e.g. after 12:00 AM),
+ * returns today's scheduled draw slots with awaiting status and empty placeholders.
  */
 export function buildDrawResultsForDate(
   records: SheetRowRecord[],
   targetDMY: string,
   isExplicitDate: boolean = false
 ): { results: DrawResult[]; effectiveDate: string } {
-  let activeDMY = targetDMY;
-  let dateRecords = records.filter((r) => r.date === activeDMY);
-  const hasExactRecords = dateRecords.length > 0 && dateRecords.some((r) => r.status === "published");
+  const activeDMY = targetDMY;
+  const dateRecords = records.filter((r) => r.date === activeDMY);
+  const hasExactPublished = dateRecords.some((r) => r.status === "published");
 
   // If user explicitly queried a historical date, and the sheet has no published records for that date:
-  if (isExplicitDate && !hasExactRecords) {
+  if (isExplicitDate && !hasExactPublished) {
     return { results: [], effectiveDate: targetDMY };
-  }
-
-  // If no published records found for targetDMY (e.g. today's live feed before first draw):
-  if (dateRecords.length === 0 || dateRecords.every((r) => r.status === "awaiting")) {
-    const publishedRecords = records.filter((r) => r.status === "published");
-    if (publishedRecords.length > 0) {
-      const latestDate = publishedRecords[publishedRecords.length - 1].date;
-      const fallbackRecords = records.filter((r) => r.date === latestDate);
-      if (fallbackRecords.length > 0) {
-        dateRecords = fallbackRecords;
-        activeDMY = latestDate;
-      }
-    }
   }
 
   const targetYMD = normalizeToYMD(activeDMY);
 
-  const results = DRAW_DEFINITIONS.map((def) => {
+  const results = DRAW_DEFINITIONS.map((def, idx) => {
     const found = dateRecords.find((r) => r.drawId === def.id);
+    const fallbackDrawNo = getExpectedDrawNumber(activeDMY, idx);
 
     if (found) {
       return {
         drawId: def.id,
         drawName: def.name,
-        drawNumber: found.drawNumber,
+        drawNumber: found.drawNumber || fallbackDrawNo,
         date: activeDMY,
         isoDate: targetYMD,
         time: found.time || def.time,
@@ -277,11 +266,11 @@ export function buildDrawResultsForDate(
       };
     }
 
-    // Default awaiting slot if row not yet published
+    // Default awaiting slot with empty placeholders when today's draw is not yet published
     return {
       drawId: def.id,
       drawName: def.name,
-      drawNumber: 0,
+      drawNumber: fallbackDrawNo,
       date: activeDMY,
       isoDate: targetYMD,
       time: def.time,
@@ -329,7 +318,7 @@ export async function fetchGoogleSheetResults(
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
+    const timeout = setTimeout(() => controller.abort(), 3000);
 
     const res = await fetch(url, {
       headers: {
@@ -410,7 +399,9 @@ export async function fetchGoogleSheetResults(
       message: `Synchronized ${records.length} records successfully.`,
     };
   } catch (err: any) {
-    console.warn("Failed to fetch Google Sheet results:", err);
+    if (err?.name !== "AbortError") {
+      console.warn("Google Sheet sync notice:", err?.message || err);
+    }
     return {
       success: false,
       status: "network_error",

@@ -12,7 +12,7 @@ import {
   CircleHelp,
 } from "lucide-react";
 import type { DrawResult } from "@/lib/types";
-import { DRAWS, fetchResults } from "@/lib/data";
+import { DRAWS, fetchResults, getTodayIST } from "@/lib/data";
 import { DrawGrid } from "@/components/draw-grid";
 
 type HistorySectionProps = {
@@ -21,13 +21,12 @@ type HistorySectionProps = {
   activeDate?: string;
 };
 
-// Default initial date: active date or today in YYYY-MM-DD
+// Default initial date: active date or today in IST (YYYY-MM-DD)
 function getInitialDate(activeDate?: string): string {
   if (activeDate && /^\d{4}-\d{2}-\d{2}$/.test(activeDate)) {
     return activeDate;
   }
-  const d = new Date();
-  return d.toISOString().split("T")[0];
+  return getTodayIST().ymd;
 }
 
 export function HistorySection({ copiedDraw, onShare, activeDate }: HistorySectionProps) {
@@ -112,7 +111,7 @@ export function HistorySection({ copiedDraw, onShare, activeDate }: HistorySecti
               type="date"
               value={selectedDate}
               min="2026-10-01"
-              max="2026-11-24"
+              max={getTodayIST().ymd}
               onChange={(e) => setSelectedDate(e.target.value)}
               className="border-0 bg-transparent text-white text-sm outline-none w-full sm:w-auto"
             />

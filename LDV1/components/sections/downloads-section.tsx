@@ -6,7 +6,7 @@
 
 import { useState, useEffect } from "react";
 import { Download, FileText } from "lucide-react";
-import { buildDownloadEntries, DRAWS, fetchResults } from "@/lib/data";
+import { buildDownloadEntries, DRAWS, fetchResults, getTodayIST } from "@/lib/data";
 import type { DrawResult, DownloadEntry } from "@/lib/types";
 
 type DownloadsSectionProps = {
@@ -89,7 +89,7 @@ export function DownloadsSection({ initialRecords }: DownloadsSectionProps) {
             type="date"
             value={dateFilter}
             min="2026-10-01"
-            max="2026-11-24"
+            max={getTodayIST().ymd}
             onChange={(e) => setDateFilter(e.target.value)}
             className="border-0 bg-transparent text-white text-sm outline-none flex-1"
             placeholder="Filter by date"

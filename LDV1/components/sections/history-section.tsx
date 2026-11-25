@@ -9,7 +9,6 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  CircleHelp,
 } from "lucide-react";
 import type { DrawResult } from "@/lib/types";
 import { DRAWS, fetchResults, fetchResultsRange, getYesterdayIST } from "@/lib/data";
@@ -115,22 +114,20 @@ export function HistorySection({ copiedDraw, onShare }: HistorySectionProps) {
             <button
               type="button"
               onClick={() => setViewMode("single")}
-              className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
-                viewMode === "single"
-                  ? "bg-cyan-400 text-slate-950 font-bold"
-                  : "text-slate-300 hover:text-white"
-              }`}
+              className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${viewMode === "single"
+                ? "bg-cyan-400 text-slate-950 font-bold"
+                : "text-slate-300 hover:text-white"
+                }`}
             >
               Single Day
             </button>
             <button
               type="button"
               onClick={() => setViewMode("range")}
-              className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
-                viewMode === "range"
-                  ? "bg-cyan-400 text-slate-950 font-bold"
-                  : "text-slate-300 hover:text-white"
-              }`}
+              className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${viewMode === "range"
+                ? "bg-cyan-400 text-slate-950 font-bold"
+                : "text-slate-300 hover:text-white"
+                }`}
             >
               Date Range
             </button>
@@ -210,8 +207,8 @@ export function HistorySection({ copiedDraw, onShare }: HistorySectionProps) {
         <div className="flex gap-[6px] flex-wrap">
           <button
             className={`text-xs px-3 py-[6px] rounded-pill border transition-colors ${selectedDraw === "ALL"
-                ? "bg-white text-slate-950 font-bold border-white"
-                : "bg-black/15 border-white/10 hover:border-white/30 text-slate-300"
+              ? "bg-white text-slate-950 font-bold border-white"
+              : "bg-black/15 border-white/10 hover:border-white/30 text-slate-300"
               }`}
             onClick={() => setSelectedDraw("ALL")}
           >
@@ -221,8 +218,8 @@ export function HistorySection({ copiedDraw, onShare }: HistorySectionProps) {
             <button
               key={d.id}
               className={`text-xs px-3 py-[6px] rounded-pill border transition-colors font-mono ${selectedDraw === d.id
-                  ? "bg-cyan-400 text-slate-950 font-bold border-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)]"
-                  : "bg-black/15 border-white/10 hover:border-white/30 text-slate-300"
+                ? "bg-cyan-400 text-slate-950 font-bold border-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)]"
+                : "bg-black/15 border-white/10 hover:border-white/30 text-slate-300"
                 }`}
               onClick={() => setSelectedDraw(d.id)}
             >
@@ -233,7 +230,7 @@ export function HistorySection({ copiedDraw, onShare }: HistorySectionProps) {
       </div>
 
       {/* Date display */}
-      <p className="text-xs text-slate-300 mt-5 mb-2">
+      <p className="text-xs text-slate-300 mt-5 mb-5">
         {viewMode === "single" ? (
           <>
             Showing results for <strong className="text-white font-bold">{displayDate}</strong>
@@ -247,13 +244,6 @@ export function HistorySection({ copiedDraw, onShare }: HistorySectionProps) {
           </>
         )}
       </p>
-
-      {/* Notice — 90-95% transparent banner */}
-      <div className="flex items-start gap-2.5 bg-black/10 border border-white/10 rounded-xl px-4 py-[14px] my-[22px] text-slate-300 text-sm leading-relaxed">
-        <CircleHelp size={17} className="shrink-0 mt-0.5 text-cyan-400" />
-        Historical records are queried live from the official draw database. If a
-        past date has no verified results published, an honest empty state is shown.
-      </div>
 
       {/* Results */}
       <DrawGrid
